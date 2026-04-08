@@ -56,4 +56,4 @@ DELIVERY_ETA_RANGE = (4, 24)  # hours
 
 # Simulation timing
 TICK_INTERVAL = 7  # seconds
-SIMULATOR_URL = "http://localhost:8000/ingest"
+SIMULATOR_URL = "http://localhost:8000"
