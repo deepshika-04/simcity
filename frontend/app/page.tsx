@@ -25,6 +25,8 @@ interface DashboardData {
   hospitals?: any[]
   supply?: any[]
   alerts?: AlertItem[]
+  active_scenario?: string | null
+  scenario_remaining?: number
 }
 
 export default function Dashboard() {
@@ -37,11 +39,15 @@ export default function Dashboard() {
   useEffect(() => {
     fetchStatus().then(res => {
       setData(res)
+      if (res?.active_scenario !== undefined) setActiveScenario(res.active_scenario)
       setLoading(false)
     }).catch(console.error)
 
     const interval = setInterval(() => {
-      fetchStatus().then(setData).catch(console.error)
+      fetchStatus().then((res) => {
+        setData(res)
+        if (res?.active_scenario !== undefined) setActiveScenario(res.active_scenario)
+      }).catch(console.error)
     }, 5000)
 
     const ws = setupWebSocket((message) => {
@@ -60,14 +66,25 @@ export default function Dashboard() {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [logs, data?.alerts])
 
-  const handleTriggerDisaster = async () => {
+  const handleTriggerDisaster = async (scenario: string) => {
     try {
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [WARN] COMMAND: INITIALIZING DISASTER ROUTINE...`])
-      await triggerScenario('earthquake')
-      setActiveScenario('earthquake')
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [CRITICAL] SIMULATION STARTED: EARTHQUAKE IN PROGRESS`])
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [WARN] COMMAND: INITIALIZING ${scenario.toUpperCase()} SCENARIO...`])
+      await triggerScenario(scenario)
+      setActiveScenario(scenario)
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [CRITICAL] SIMULATION STARTED: ${scenario.toUpperCase()} IN PROGRESS`])
     } catch (e) {
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [ERR] Failed to initiate simulation protocols.`])
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [ERR] Failed to initiate ${scenario} protocols.`])
+    }
+  }
+
+  const handleReset = async () => {
+    try {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [INFO] COMMAND: SYSTEM RESET INITIATED...`])
+      await triggerScenario('reset')
+      setActiveScenario(null)
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [OK] SYSTEM RESET SUCCESSFUL`])
+    } catch (e) {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] [ERR] Failed to reset system.`])
     }
   }
 
@@ -75,7 +92,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen w-full p-4 md:p-8 font-sans flex flex-col gap-8 relative z-0">
-      
+
       {/* Background Decorators */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-900/20 blur-[120px] pointer-events-none -z-10" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-900/20 blur-[120px] pointer-events-none -z-10" />
@@ -92,22 +109,37 @@ export default function Dashboard() {
             Real-time Telemetry Live
           </p>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           {activeScenario && (
-            <div className="glass-panel px-6 py-3 rounded-xl border border-red-500/50 flex items-center gap-3">
-               <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-               <span className="font-bold text-red-400 text-sm tracking-widest uppercase text-shadow-sm shadow-red-500/50">ACTIVE: {activeScenario}</span>
+            <div className="hidden md:flex glass-panel px-4 py-2 mr-2 rounded-xl border border-red-500/50 items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              <span className="font-bold text-red-400 text-xs tracking-widest uppercase text-shadow-sm shadow-red-500/50">ACTIVE: {activeScenario}</span>
             </div>
           )}
+          {['flood', 'earthquake', 'fire'].map(scenario => (
+            <button
+              key={scenario}
+              onClick={() => handleTriggerDisaster(scenario)}
+              disabled={activeScenario === scenario}
+              className={`group relative px-4 md:px-6 py-2 md:py-3 font-black tracking-widest rounded-xl overflow-hidden transition-all active:scale-95 border shadow-lg ${activeScenario === scenario
+                  ? 'bg-red-600 border-red-500 text-white shadow-[0_0_30px_rgba(220,38,38,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-600 text-slate-200 hover:text-white hover:border-slate-400 backdrop-blur-md'
+                }`}
+            >
+              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay" />
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-[150%] group-hover:animate-[shimmer_1.5s_infinite] skew-x-12" />
+              <span className="relative z-10 flex items-center gap-2 text-[10px] md:text-sm">
+                {scenario === 'flood' ? '🌊' : scenario === 'earthquake' ? '🌍' : '🔥'} {scenario.toUpperCase()}
+              </span>
+            </button>
+          ))}
           <button
-            onClick={handleTriggerDisaster}
-            className="group relative px-10 py-4 bg-gradient-to-br from-red-600 to-rose-900 text-white font-black tracking-widest rounded-xl overflow-hidden transition-all active:scale-95 border border-red-500/50 shadow-[0_0_30px_rgba(220,38,38,0.3)] hover:shadow-[0_0_50px_rgba(220,38,38,0.6)]"
+            onClick={handleReset}
+            disabled={!activeScenario}
+            className="group relative px-4 md:px-6 py-2 md:py-3 font-black tracking-widest rounded-xl overflow-hidden transition-all active:scale-95 border shadow-lg bg-blue-900/40 hover:bg-blue-600/80 border-blue-500/50 text-blue-200 hover:text-white backdrop-blur-md hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay" />
-            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-[150%] group-hover:animate-[shimmer_1.5s_infinite] skew-x-12" />
-            <span className="relative z-10 flex items-center gap-2 text-shadow-lg shadow-black/50">
-              <svg className="w-5 h-5 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-              TRIGGER DISASTER
+            <span className="relative z-10 flex items-center gap-2 text-[10px] md:text-sm">
+              🔄 RESET
             </span>
           </button>
         </div>
@@ -128,7 +160,7 @@ export default function Dashboard() {
 
       {/* Bottom Layout: Sidebar | Metrics | Logs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+
         {/* Sidebar (Alerts) */}
         <div className="card flex flex-col h-[450px]">
           <h2 className="text-lg font-bold mb-5 flex items-center justify-between border-b border-slate-700/50 pb-3">
@@ -147,25 +179,23 @@ export default function Dashboard() {
               data.alerts.map((alert, idx) => (
                 <div
                   key={idx}
-                  className={`p-5 rounded-2xl border ${
-                    alert.severity === 'high'
+                  className={`p-5 rounded-2xl border ${alert.severity === 'high'
                       ? 'bg-red-950/40 border-red-500/50 shadow-[0_4px_20px_rgba(239,68,68,0.15)] text-red-50'
                       : alert.severity === 'medium'
-                      ? 'bg-yellow-950/40 border-yellow-500/50 shadow-[0_4px_20px_rgba(234,179,8,0.15)] text-yellow-50'
-                      : 'bg-blue-950/40 border-blue-500/50 shadow-[0_4px_20px_rgba(59,130,246,0.15)] text-blue-50'
-                  } transition-transform hover:-translate-y-1 cursor-default relative overflow-hidden`}
+                        ? 'bg-yellow-950/40 border-yellow-500/50 shadow-[0_4px_20px_rgba(234,179,8,0.15)] text-yellow-50'
+                        : 'bg-blue-950/40 border-blue-500/50 shadow-[0_4px_20px_rgba(59,130,246,0.15)] text-blue-50'
+                    } transition-transform hover:-translate-y-1 cursor-default relative overflow-hidden`}
                 >
                   {/* Subtle shine effect on cards */}
                   <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-                  
+
                   <div className="flex justify-between items-start mb-2 relative z-10">
                     <p className="font-bold text-sm tracking-wider flex items-center gap-2 drop-shadow-md">
                       {alert.severity === 'high' && <span className="text-red-400">⚠️</span>}
                       {alert.type}
                     </p>
-                    <span className={`text-[9px] px-2 py-1 rounded tracking-wider font-bold uppercase ${
-                      alert.severity === 'high' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                    }`}>
+                    <span className={`text-[9px] px-2 py-1 rounded tracking-wider font-bold uppercase ${alert.severity === 'high' ? 'bg-red-500/20 text-red-300 border border-red-500/30' : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                      }`}>
                       LVL: {alert.severity}
                     </span>
                   </div>
@@ -194,26 +224,26 @@ export default function Dashboard() {
             <span className="tracking-widest">SYSTEM METRICS</span>
           </h2>
           <div className="flex-1 overflow-y-auto pr-2 space-y-5 custom-scrollbar">
-            <MetricCard 
-              icon="⚠️" 
-              title="Total Critical Nodes" 
-              value={data?.alerts?.length.toString() || "0"} 
-              subValue="Nodes requiring immediate attention" 
-              status={data?.alerts && data.alerts.length > 0 ? 'critical' : 'normal'} 
+            <MetricCard
+              icon="⚠️"
+              title="Total Critical Nodes"
+              value={data?.alerts?.length.toString() || "0"}
+              subValue="Nodes requiring immediate attention"
+              status={data?.alerts && data.alerts.length > 0 ? 'critical' : 'normal'}
             />
-            <MetricCard 
-              icon="⚡" 
-              title="Grid Health" 
-              value={data?.alerts && data.alerts.length > 0 ? `${Math.max(10, 100 - data.alerts.length * 5)}%` : "100%"} 
-              subValue="Overall system operational capacity" 
-              status={data?.alerts && data.alerts.length > 5 ? 'critical' : data?.alerts && data.alerts.length > 0 ? 'warning' : 'normal'} 
+            <MetricCard
+              icon="⚡"
+              title="Grid Health"
+              value={data?.alerts && data.alerts.length > 0 ? `${Math.max(10, 100 - data.alerts.length * 5)}%` : "100%"}
+              subValue="Overall system operational capacity"
+              status={data?.alerts && data.alerts.length > 5 ? 'critical' : data?.alerts && data.alerts.length > 0 ? 'warning' : 'normal'}
             />
-            <MetricCard 
-              icon="🏥" 
-              title="Active Hospitals" 
-              value={data?.hospitals?.length?.toString() || "4"} 
-              subValue="Facilities accepting patients right now" 
-              status={data?.hospitals?.length === 0 ? 'critical' : 'normal'} 
+            <MetricCard
+              icon="🏥"
+              title="Active Hospitals"
+              value={data?.hospitals?.length?.toString() || "4"}
+              subValue="Facilities accepting patients right now"
+              status={data?.hospitals?.length === 0 ? 'critical' : 'normal'}
             />
           </div>
         </div>

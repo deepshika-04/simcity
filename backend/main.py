@@ -1,6 +1,6 @@
 """FastAPI server for SimCity"""
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
@@ -63,7 +63,7 @@ async def health_check():
     }
 
 @app.post("/ingest")
-async def ingest(data: list):
+async def ingest(data: list = Body(...)):
     """Receive data from simulator"""
     if not db:
         raise HTTPException(status_code=503, detail="Database not connected")
