@@ -7,15 +7,24 @@ ENV/
 env.bak/
 venv.bak/
 
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+*.sqlite3
+
+# Node
+node_modules/
+.next/
+out/
+dist/
 
 # IDEs
 .vscode/
 .idea/
 
-# OS generated files
+# OS files
 .DS_Store
 Thumbs.db
