@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import Map from '@/components/Map'
+import dynamic from 'next/dynamic'
 import MetricCard from '@/components/MetricCard'
 import Loading from '@/components/Loading'
+
+const Map = dynamic(() => import('@/components/Map'), { ssr: false })
 import { fetchStatus, setupWebSocket, triggerScenario } from '@/lib/api'
 
 interface AlertItem {
